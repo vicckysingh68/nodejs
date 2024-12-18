@@ -3,19 +3,22 @@ const mongoose = require('mongoose'); // Add this line
 
 const router = express.Router();
 const Person = require('../models/person');
-
-
-router.post('/', async (req, res) => {
+const {jwtAuthMiddleawre, generateToken} = require('../jwt');
+ 
+ 
+router.post('/singup',async (req, res) => {
     
     try{
-        const data = req.body;
+        const data = req.body; // Assuming the request body contains the person data
         const newPerson = new Person(data);
    
        //save the new person  to the database 
        // await that can be used until your operation performed 
      const response = await  newPerson.save()
     console.log('data saved');
-    res.status(200).json(response);
+    const token= generateToken(response.username);
+    console.log('toke is', token);
+    res.status(200).json({response: response, token:token});
 
     } catch(err){
        console.log(err);
@@ -23,7 +26,7 @@ router.post('/', async (req, res) => {
     }
 });
 
-router.get('/', async(req, res)=>{
+router.get('/', jwtAuthMiddleawre, async(req, res)=>{
 
 try{
  const data = await Person.find();
@@ -34,9 +37,41 @@ try{
 console.log(err);
 res.status(500).json({error: 'internal server erro'});
 }
-})
+}),
 
-router.get('/:workType', async(req, res)=>{
+
+// Profile Router
+
+
+// login Route 
+
+router.post('/login', async (req, res) => {
+    try {
+        // Extract username and password from request body
+        const { username, password } = req.body;
+
+        // Find the user by username
+        const user = await Person.findOne({ username });
+
+        if (!user || (password !== user.password)) {
+            return res.status(401).json({ error: 'Invalid username or password' });
+        }
+
+        // Generate token
+        const payload = { id: user.id, username: user.username };
+        const token = generateToken(payload);
+
+        res.json({ token });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+module.exports = router;
+
+
+router.get('/:workType', jwtAuthMiddleawre, async(req, res)=>{
 try{
 const workType= req.params.workType;
 if(workType == 'chef' || workType == 'waiter' || workType == 'manager' ){
